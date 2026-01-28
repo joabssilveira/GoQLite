@@ -7,6 +7,18 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ---
 
+## [0.2.0] - 2026-01-28
+
+### Changed
+- **BREAKING**: `GormGetList` no longer reads `*http.Request`
+- Split into:
+  - `GormGetList` → core data function without HTTP dependency
+  - `GormGetListHttp` → HTTP helper that parses request and calls `GormGetList`
+
+This change separates transport (HTTP) from data querying, making the core usable in non-HTTP contexts.
+
+---
+
 ## [0.1.0] - 2026-01-28
 
 ### Added
