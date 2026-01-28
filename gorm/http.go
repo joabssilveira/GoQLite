@@ -12,7 +12,7 @@ import (
 
 func GormListHandler[T any](db *gorm.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		resp, err := GormGetList[T](db, r, fwork_server_orm.Filter{})
+		resp, err := GormGetListHttp[T](db, r, fwork_server_orm.Filter{})
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return

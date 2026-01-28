@@ -461,7 +461,49 @@ func quoteIdent(s string) string {
 	return `"` + s + `"`
 }
 
-func GormGetList[T any](db *gorm.DB, r *http.Request, additionalWhere fwork_server_orm.Filter) (fwork_server_orm.GetListData[T], error) {
+func GormGetList[T any](db *gorm.DB, payload fwork_server_orm.QueryPayload) (fwork_server_orm.GetListData[T], error) {
+	fwork_server_orm.ApplyPagination(&payload)
+
+	// =========================
+	// 1) COUNT
+	// =========================
+
+	var total int64
+
+	countPayload := fwork_server_orm.ExtractCountPayload(payload)
+
+	countBuilder := NewGormQueryBuilder(db.Model(new(T)))
+	countBuilder = ApplyQuery(countBuilder, countPayload)
+
+	// TODO descomentar na versao final
+	// if err := countBuilder.Db.Count(&total).Error; err != nil {
+	// 	return GetListData[T]{}, err
+	// }
+
+	// =========================
+	// 2) DATA
+	// =========================
+
+	var list []T
+
+	dataBuilder := NewGormQueryBuilder(db.Model(new(T)))
+	dataBuilder = ApplyQuery(dataBuilder, payload)
+
+	if err := dataBuilder.Db.Find(&list).Error; err != nil {
+		return fwork_server_orm.GetListData[T]{}, err
+	}
+
+	// =========================
+	// RESPONSE
+	// =========================
+
+	return fwork_server_orm.GetListData[T]{
+		Payload:    list,
+		Pagination: fwork_server_orm.BuildPaginationMeta(payload, total),
+	}, nil
+}
+
+func GormGetListHttp[T any](db *gorm.DB, r *http.Request, additionalWhere fwork_server_orm.Filter) (fwork_server_orm.GetListData[T], error) {
 	var payload fwork_server_orm.QueryPayload
 
 	// where
@@ -524,39 +566,41 @@ func GormGetList[T any](db *gorm.DB, r *http.Request, additionalWhere fwork_serv
 	// 1) COUNT
 	// =========================
 
-	var total int64
+	return GormGetList[T](db, payload)
 
-	countPayload := fwork_server_orm.ExtractCountPayload(payload)
+	// var total int64
 
-	countBuilder := NewGormQueryBuilder(db.Model(new(T)))
-	countBuilder = ApplyQuery(countBuilder, countPayload)
+	// countPayload := fwork_server_orm.ExtractCountPayload(payload)
 
-	// TODO descomentar na versao final
-	// if err := countBuilder.Db.Count(&total).Error; err != nil {
-	// 	return GetListData[T]{}, err
+	// countBuilder := NewGormQueryBuilder(db.Model(new(T)))
+	// countBuilder = ApplyQuery(countBuilder, countPayload)
+
+	// // TODO descomentar na versao final
+	// // if err := countBuilder.Db.Count(&total).Error; err != nil {
+	// // 	return GetListData[T]{}, err
+	// // }
+
+	// // =========================
+	// // 2) DATA
+	// // =========================
+
+	// var list []T
+
+	// dataBuilder := NewGormQueryBuilder(db.Model(new(T)))
+	// dataBuilder = ApplyQuery(dataBuilder, payload)
+
+	// if err := dataBuilder.Db.Find(&list).Error; err != nil {
+	// 	return fwork_server_orm.GetListData[T]{}, err
 	// }
 
-	// =========================
-	// 2) DATA
-	// =========================
+	// // =========================
+	// // RESPONSE
+	// // =========================
 
-	var list []T
-
-	dataBuilder := NewGormQueryBuilder(db.Model(new(T)))
-	dataBuilder = ApplyQuery(dataBuilder, payload)
-
-	if err := dataBuilder.Db.Find(&list).Error; err != nil {
-		return fwork_server_orm.GetListData[T]{}, err
-	}
-
-	// =========================
-	// RESPONSE
-	// =========================
-
-	return fwork_server_orm.GetListData[T]{
-		Payload:    list,
-		Pagination: fwork_server_orm.BuildPaginationMeta(payload, total),
-	}, nil
+	// return fwork_server_orm.GetListData[T]{
+	// 	Payload:    list,
+	// 	Pagination: fwork_server_orm.BuildPaginationMeta(payload, total),
+	// }, nil
 }
 
 func ApplyJoinsFromFilter(
