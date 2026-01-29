@@ -7,6 +7,42 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ---
 
+## [v0.3.0] - 2026-01-29
+
+### ✨ Added
+- Generic `JSONB[T]` type for seamless PostgreSQL JSONB support  
+  - Implements `sql.Scanner` and `driver.Valuer`  
+  - Compatible with GORM and `database/sql`  
+  - Includes `MarshalJSON` and `UnmarshalJSON` to expose clean JSON in APIs (no wrapper field)  
+  - Supports persistence of slices, structs, maps, and pointer types as JSONB  
+  - Centralizes JSONB handling inside GoQLite, removing the need for per-project boilerplate
+
+- Typed update resolver support via `UpdateStructResolver[T]`  
+  - Allows update handlers to receive strongly typed payloads  
+  - Brings update flow in line with the existing `GormCreateHandler` pattern  
+
+### 🔄 Changed
+- `GormUpdateHandler` now uses typed structs instead of `map[string]interface{}` by default  
+  - Preserves custom field types such as:
+    - `JSONB[T]`
+    - custom enums
+    - embedded structs  
+  - Prevents type loss during updates that previously generated invalid SQL for JSONB fields  
+  - Primary key protection is now enforced by restoring the persisted value before update  
+
+### 🐛 Fixed
+- Fixed PostgreSQL error when updating JSONB columns:
+  - This happened because map-based updates converted JSON arrays into SQL record syntax like: ('A','B','C')
+
+- Updates now correctly send valid JSON to PostgreSQL.
+
+### 💥 Breaking Changes
+- `GormUpdateHandler` no longer supports map-based dynamic updates  
+- The previous behavior caused loss of type information and broke JSONB and other custom types  
+- If dynamic/unsafe updates are required, a dedicated patch-style handler must be implemented separately
+
+---
+
 ## [0.2.0] - 2026-01-28
 
 ### Changed

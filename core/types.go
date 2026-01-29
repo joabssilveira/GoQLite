@@ -1,5 +1,11 @@
 package fwork_server_orm
 
+import (
+	"database/sql/driver"
+	"encoding/json"
+	"fmt"
+)
+
 // request...
 
 type QueryPayload struct {
@@ -83,3 +89,53 @@ type Order struct {
 }
 
 type FieldExprApplier func(builder QueryBuilder, field string, expr FieldExpr) QueryBuilder
+
+// DB TYPES
+
+// JSONB is a generic wrapper for saving any struct/slice/map as jsonb in Postgres.
+type JSONB[T any] struct {
+	Data T
+}
+
+//
+// =======================
+// DATABASE (GORM / SQL)
+// =======================
+//
+
+// Value converts to JSON before saving to the database
+func (j JSONB[T]) Value() (driver.Value, error) {
+	return json.Marshal(j.Data)
+}
+
+// Scan converts JSON from the database back to the Go type.
+func (j *JSONB[T]) Scan(value interface{}) error {
+	if value == nil {
+		var empty T
+		j.Data = empty
+		return nil
+	}
+
+	bytes, ok := value.([]byte)
+	if !ok {
+		return fmt.Errorf("dbtypes.JSONB: invalid type Scan")
+	}
+
+	return json.Unmarshal(bytes, &j.Data)
+}
+
+//
+// =======================
+// API (JSON HTTP)
+// =======================
+//
+
+// MarshalJSON makes the API return only the content, without "Data".
+func (j JSONB[T]) MarshalJSON() ([]byte, error) {
+	return json.Marshal(j.Data)
+}
+
+// UnmarshalJSON allows you to receive JSON directly in the field.
+func (j *JSONB[T]) UnmarshalJSON(b []byte) error {
+	return json.Unmarshal(b, &j.Data)
+}

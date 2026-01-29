@@ -4,11 +4,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"reflect"
+	"strings"
 
 	"github.com/gorilla/mux"
 	fwork_server_orm "github.com/joabssilveira/GoQLite/core"
 	"gorm.io/gorm"
 )
+
+// GET
 
 func GormListHandler[T any](db *gorm.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -23,18 +27,12 @@ func GormListHandler[T any](db *gorm.DB) http.HandlerFunc {
 	}
 }
 
+// POST
+
 type CreatePayloadResolver[T any] func(r *http.Request) (T, error)
 
 func BodyPayloadResolver[T any](r *http.Request) (T, error) {
 	var payload T
-	err := json.NewDecoder(r.Body).Decode(&payload)
-	return payload, err
-}
-
-type UpdatePayloadResolver func(r *http.Request) (map[string]interface{}, error)
-
-func BodyMapResolver(r *http.Request) (map[string]interface{}, error) {
-	var payload map[string]interface{}
 	err := json.NewDecoder(r.Body).Decode(&payload)
 	return payload, err
 }
@@ -68,13 +66,71 @@ func GormCreateHandler[T any](
 	}
 }
 
+// PUT
+
+// type UpdatePayloadResolver func(r *http.Request) (map[string]interface{}, error)
+
+// func BodyMapResolver(r *http.Request) (map[string]interface{}, error) {
+// 	var payload map[string]interface{}
+// 	err := json.NewDecoder(r.Body).Decode(&payload)
+// 	return payload, err
+// }
+
+// func GormUpdateHandler[T any](
+// 	db *gorm.DB,
+// 	keyName string,
+// 	resolver ...UpdatePayloadResolver,
+// ) http.HandlerFunc {
+// 	// default
+// 	resolve := BodyMapResolver
+// 	if len(resolver) > 0 && resolver[0] != nil {
+// 		resolve = resolver[0]
+// 	}
+
+// 	return func(w http.ResponseWriter, r *http.Request) {
+// 		id := mux.Vars(r)["id"]
+
+// 		var old T
+// 		if err := db.First(&old, fmt.Sprintf("%s = ?", keyName), id).Error; err != nil {
+// 			http.Error(w, "Not found", http.StatusNotFound)
+// 			return
+// 		}
+
+// 		payload, err := resolve(r)
+// 		if err != nil {
+// 			http.Error(w, err.Error(), http.StatusBadRequest)
+// 			return
+// 		}
+
+// 		// segurança: nunca permitir update da PK
+// 		delete(payload, keyName)
+
+// 		if err := db.Model(&old).Updates(payload).Error; err != nil {
+// 			http.Error(w, err.Error(), http.StatusInternalServerError)
+// 			return
+// 		}
+
+// 		w.Header().Set("Content-Type", "application/json")
+// 		w.WriteHeader(http.StatusOK)
+// 		json.NewEncoder(w).Encode(old)
+// 	}
+// }
+
+type UpdateStructResolver[T any] func(r *http.Request) (T, error)
+
+func BodyStructResolver[T any](r *http.Request) (T, error) {
+	var payload T
+	err := json.NewDecoder(r.Body).Decode(&payload)
+	return payload, err
+}
+
 func GormUpdateHandler[T any](
 	db *gorm.DB,
 	keyName string,
-	resolver ...UpdatePayloadResolver,
+	resolver ...UpdateStructResolver[T],
 ) http.HandlerFunc {
-	// default
-	resolve := BodyMapResolver
+
+	resolve := BodyStructResolver[T]
 	if len(resolver) > 0 && resolver[0] != nil {
 		resolve = resolver[0]
 	}
@@ -94,8 +150,20 @@ func GormUpdateHandler[T any](
 			return
 		}
 
-		// segurança: nunca permitir update da PK
-		delete(payload, keyName)
+		// 🔒 Garante que a PK não é alterada (via reflexão padrão)
+		oldVal := reflect.ValueOf(&old).Elem()
+		newVal := reflect.ValueOf(&payload).Elem()
+
+		field := newVal.FieldByNameFunc(func(n string) bool {
+			return strings.EqualFold(n, keyName)
+		})
+
+		if field.IsValid() && field.CanSet() {
+			oldField := oldVal.FieldByNameFunc(func(n string) bool {
+				return strings.EqualFold(n, keyName)
+			})
+			field.Set(oldField)
+		}
 
 		if err := db.Model(&old).Updates(payload).Error; err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
