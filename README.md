@@ -70,7 +70,7 @@ db := gorm.Open(...)
 
 r := http.Request{} // incoming request with query params
 
-result, err := goqlite.GormGetList[User](db, r, goqlite.Filter{})
+result, err := goqlite.GormGetListHttp[User](db, r, goqlite.Filter{})
 if err != nil {
     log.Fatal(err)
 }

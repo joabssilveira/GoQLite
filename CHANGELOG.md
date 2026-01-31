@@ -7,6 +7,31 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ---
 
+## v0.3.1
+
+### ✨ Added
+- Support for unlimited-depth relational filters using dot notation  
+  It is now possible to filter fields across multiple relationship levels, such as:
+  - `course.name`
+  - `course.course_group.name`
+  - `course.course_group.realm_name`
+  - `a.b.c.d.field`
+
+### 🚀 Improved
+- Relational path resolution now dynamically walks through the full GORM relationship chain
+- JOINs are now generated in a properly chained manner, linking parent → child aliases across all levels
+- Final fields are now resolved based on the schema of the last model in the relationship chain
+
+### 🛠 Fixed
+- Fixed duplicate JOIN detection logic to prevent incorrect JOIN reuse  
+  The check now considers the full JOIN clause instead of only the alias:
+  ```go
+  if !hasJoin(db, join) {
+      db.Joins(join)
+  }
+
+---
+
 ## [v0.3.0] - 2026-01-29
 
 ### ✨ Added

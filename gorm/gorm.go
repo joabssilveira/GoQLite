@@ -307,6 +307,60 @@ func applyRelationJoin(db *gorm.DB, parentModel any, relationName string, alias 
 	)
 }
 
+func applyRelationJoinWithParentAlias(
+	db *gorm.DB,
+	parentModel any,
+	rel *schema.Relationship,
+	alias string,
+	parentAlias string,
+) {
+	relationTable := rel.FieldSchema.Table
+
+	var parentKey, childKey string
+	for _, ref := range rel.References {
+		parentKey = ref.PrimaryKey.DBName
+		childKey = ref.ForeignKey.DBName
+		break
+	}
+
+	parentTable := parentAlias
+	if parentTable == "" {
+		stmt := &gorm.Statement{DB: db}
+		_ = stmt.Parse(parentModel)
+		parentTable = stmt.Schema.Table
+	}
+
+	var join string
+	if rel.Type == schema.BelongsTo {
+		join = fmt.Sprintf(
+			`LEFT JOIN "%s" "%s" ON "%s"."%s" = "%s"."%s"`,
+			relationTable,
+			alias,
+			alias,
+			parentKey,
+			parentTable,
+			childKey,
+		)
+	} else {
+		join = fmt.Sprintf(
+			`LEFT JOIN "%s" "%s" ON "%s"."%s" = "%s"."%s"`,
+			relationTable,
+			alias,
+			alias,
+			childKey,
+			parentTable,
+			parentKey,
+		)
+	}
+
+	// if !hasJoin(db, alias) {
+	// 	db.Joins(join)
+	// }
+	if !hasJoin(db, join) {
+		db.Joins(join)
+	}
+}
+
 func applyFieldExpr(builder fwork_server_orm.QueryBuilder, field string, expr fwork_server_orm.FieldExpr) fwork_server_orm.QueryBuilder {
 	gormBuilder, ok := builder.(*GormQueryBuilder)
 	if !ok {
@@ -318,55 +372,126 @@ func applyFieldExpr(builder fwork_server_orm.QueryBuilder, field string, expr fw
 	isJSONB := false
 
 	if strings.Contains(field, ".") {
+		// parts := strings.Split(field, ".")
+		// first := parts[0] // ex: children
+		// rest := parts[1:] // ex: someField
+
+		// stmt := &gorm.Statement{DB: db}
+		// _ = stmt.Parse(db.Statement.Model)
+
+		// if stmt.Schema != nil {
+		// 	// tenta resolver relação
+		// 	relName := fwork_server_orm.SnakeToCamel(first)
+		// 	rel := stmt.Schema.Relationships.Relations[relName]
+
+		// 	if rel != nil {
+		// 		// garante join
+		// 		applyRelationJoin(db, db.Statement.Model, rel.Name, first)
+
+		// 		// resolve campo real no schema do filho
+		// 		if len(rest) == 0 {
+		// 			return builder
+		// 		}
+
+		// 		fieldName := rest[0]
+		// 		var dbFieldName string
+
+		// 		for _, f := range rel.FieldSchema.Fields {
+		// 			if f.Name == fwork_server_orm.SnakeToCamel(fieldName) || f.DBName == fieldName {
+		// 				dbFieldName = f.DBName
+		// 				break
+		// 			}
+		// 		}
+
+		// 		if dbFieldName == "" {
+		// 			// fallback (não deveria acontecer, mas evita panic)
+		// 			dbFieldName = fieldName
+		// 		}
+
+		// 		sqlField = quoteIdent(first) + "." + quoteIdent(dbFieldName)
+		// 	} else {
+		// 		// JSONB fallback
+		// 		isJSONB = true
+		// 		column := first
+		// 		path := rest
+
+		// 		sqlField = fmt.Sprintf(
+		// 			"%s #>> '{%s}'",
+		// 			quoteIdent(column),
+		// 			strings.Join(path, ","),
+		// 		)
+		// 	}
+		// }
+
 		parts := strings.Split(field, ".")
-		first := parts[0] // ex: children
-		rest := parts[1:] // ex: someField
+		first := parts[0]
+		rest := parts[1:]
 
 		stmt := &gorm.Statement{DB: db}
 		_ = stmt.Parse(db.Statement.Model)
 
-		if stmt.Schema != nil {
-			// tenta resolver relação
-			relName := fwork_server_orm.SnakeToCamel(first)
-			rel := stmt.Schema.Relationships.Relations[relName]
+		if stmt.Schema == nil {
+			return builder
+		}
 
-			if rel != nil {
-				// garante join
-				applyRelationJoin(db, db.Statement.Model, rel.Name, first)
+		// tenta resolver o PRIMEIRO nível como relação
+		relName := fwork_server_orm.SnakeToCamel(first)
+		_, isRelation := stmt.Schema.Relationships.Relations[relName]
 
-				// resolve campo real no schema do filho
-				if len(rest) == 0 {
+		// ❌ NÃO é relação → JSONB (igual antes)
+		if !isRelation {
+			isJSONB = true
+			column := first
+			path := rest
+
+			sqlField = fmt.Sprintf(
+				"%s #>> '{%s}'",
+				quoteIdent(column),
+				strings.Join(path, ","),
+			)
+		} else {
+			// ✅ É relação → agora seguimos cadeia ilimitada
+			currentModel := db.Statement.Model
+			currentAlias := ""
+			var currentRel *schema.Relationship
+
+			for i := 0; i < len(parts)-1; i++ {
+				relationSnake := parts[i]
+				relationName := fwork_server_orm.SnakeToCamel(relationSnake)
+
+				stmt := &gorm.Statement{DB: db}
+				_ = stmt.Parse(currentModel)
+
+				currentRel = stmt.Schema.Relationships.Relations[relationName]
+				if currentRel == nil {
 					return builder
 				}
 
-				fieldName := rest[0]
-				var dbFieldName string
+				applyRelationJoinWithParentAlias(db, currentModel, currentRel, relationSnake, currentAlias)
 
-				for _, f := range rel.FieldSchema.Fields {
-					if f.Name == fwork_server_orm.SnakeToCamel(fieldName) || f.DBName == fieldName {
-						dbFieldName = f.DBName
-						break
-					}
-				}
-
-				if dbFieldName == "" {
-					// fallback (não deveria acontecer, mas evita panic)
-					dbFieldName = fieldName
-				}
-
-				sqlField = quoteIdent(first) + "." + quoteIdent(dbFieldName)
-			} else {
-				// JSONB fallback
-				isJSONB = true
-				column := first
-				path := rest
-
-				sqlField = fmt.Sprintf(
-					"%s #>> '{%s}'",
-					quoteIdent(column),
-					strings.Join(path, ","),
-				)
+				currentModel = reflect.New(currentRel.FieldSchema.ModelType).Interface()
+				currentAlias = relationSnake
 			}
+
+			// último item é o campo real
+			lastField := parts[len(parts)-1]
+
+			stmt = &gorm.Statement{DB: db}
+			_ = stmt.Parse(currentModel)
+
+			var dbFieldName string
+			for _, f := range stmt.Schema.Fields {
+				if f.Name == fwork_server_orm.SnakeToCamel(lastField) || f.DBName == lastField {
+					dbFieldName = f.DBName
+					break
+				}
+			}
+
+			if dbFieldName == "" {
+				dbFieldName = lastField // fallback seguro
+			}
+
+			sqlField = quoteIdent(currentAlias) + "." + quoteIdent(dbFieldName)
 		}
 	} else {
 		// stmt := &gorm.Statement{DB: db}
@@ -475,9 +600,9 @@ func GormGetList[T any](db *gorm.DB, payload fwork_server_orm.QueryPayload) (fwo
 	countBuilder := NewGormQueryBuilder(db.Model(new(T)))
 	countBuilder = ApplyQuery(countBuilder, countPayload)
 
-	// TODO descomentar na versao final
+	// TODO descomentar
 	// if err := countBuilder.Db.Count(&total).Error; err != nil {
-	// 	return GetListData[T]{}, err
+	// 	return fwork_server_orm.GetListData[T]{}, err
 	// }
 
 	// =========================
@@ -576,9 +701,9 @@ func GormGetListHttp[T any](db *gorm.DB, r *http.Request, additionalWhere fwork_
 	// countBuilder = ApplyQuery(countBuilder, countPayload)
 
 	// // TODO descomentar na versao final
-	// // if err := countBuilder.Db.Count(&total).Error; err != nil {
-	// // 	return GetListData[T]{}, err
-	// // }
+	// if err := countBuilder.Db.Count(&total).Error; err != nil {
+	// 	return GetListData[T]{}, err
+	// }
 
 	// // =========================
 	// // 2) DATA
@@ -627,26 +752,56 @@ func ApplyJoinsFromFilter(
 	}
 }
 
+// func ensureJoin(db *gorm.DB, model any, fieldPath string) {
+// 	if !strings.Contains(fieldPath, ".") {
+// 		return
+// 	}
+
+// 	parts := strings.Split(fieldPath, ".")
+// 	relationAlias := parts[0]                               // courses_def
+// 	relationName := fwork_server_orm.SnakeToCamel(parts[0]) // CoursesDef
+
+// 	stmt := &gorm.Statement{DB: db}
+// 	if err := stmt.Parse(model); err != nil || stmt.Schema == nil {
+// 		return
+// 	}
+
+// 	rel, ok := stmt.Schema.Relationships.Relations[relationName]
+// 	if !ok {
+// 		return
+// 	}
+
+// 	applyRelationJoin(db, model, rel.Name, relationAlias)
+// }
+
 func ensureJoin(db *gorm.DB, model any, fieldPath string) {
-	if !strings.Contains(fieldPath, ".") {
-		return
-	}
-
 	parts := strings.Split(fieldPath, ".")
-	relationAlias := parts[0]                               // courses_def
-	relationName := fwork_server_orm.SnakeToCamel(parts[0]) // CoursesDef
-
-	stmt := &gorm.Statement{DB: db}
-	if err := stmt.Parse(model); err != nil || stmt.Schema == nil {
+	if len(parts) < 2 {
 		return
 	}
 
-	rel, ok := stmt.Schema.Relationships.Relations[relationName]
-	if !ok {
-		return
-	}
+	currentModel := model
+	parentAlias := "" // tabela raiz
 
-	applyRelationJoin(db, model, rel.Name, relationAlias)
+	for i := 0; i < len(parts)-1; i++ {
+		relationSnake := parts[i] // course, course_group
+		relationName := fwork_server_orm.SnakeToCamel(relationSnake)
+
+		stmt := &gorm.Statement{DB: db}
+		_ = stmt.Parse(currentModel)
+
+		rel, ok := stmt.Schema.Relationships.Relations[relationName]
+		if !ok {
+			return
+		}
+
+		alias := relationSnake
+
+		applyRelationJoinWithParentAlias(db, currentModel, rel, alias, parentAlias)
+
+		currentModel = reflect.New(rel.FieldSchema.ModelType).Interface()
+		parentAlias = alias
+	}
 }
 
 func hasJoin(db *gorm.DB, alias string) bool {
