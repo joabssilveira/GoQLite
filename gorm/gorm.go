@@ -237,7 +237,6 @@ func applyRelationJoinWithParentAlias(
 	alias string,
 	parentAlias string,
 ) {
-	relationTable := rel.FieldSchema.Table
 
 	var parentKey, childKey string
 	for _, ref := range rel.References {
@@ -253,10 +252,20 @@ func applyRelationJoinWithParentAlias(
 		parentTable = stmt.Schema.Table
 	}
 
+	relationTable := rel.FieldSchema.Table
+	if strings.Contains(relationTable, ".") {
+		parts := strings.Split(relationTable, ".")
+		relationTableSchema := parts[0]
+		relationTableNameOnly := parts[1]
+		relationTable = quoteIdent(relationTableSchema) + "." + quoteIdent(relationTableNameOnly)
+	} else {
+		relationTable = quoteIdent(relationTable)
+	}
+
 	var join string
 	if rel.Type == schema.BelongsTo {
 		join = fmt.Sprintf(
-			`LEFT JOIN "%s" "%s" ON "%s"."%s" = "%s"."%s"`,
+			`LEFT JOIN %s "%s" ON "%s"."%s" = "%s"."%s"`,
 			relationTable,
 			alias,
 			alias,
@@ -266,7 +275,7 @@ func applyRelationJoinWithParentAlias(
 		)
 	} else {
 		join = fmt.Sprintf(
-			`LEFT JOIN "%s" "%s" ON "%s"."%s" = "%s"."%s"`,
+			`LEFT JOIN %s "%s" ON "%s"."%s" = "%s"."%s"`,
 			relationTable,
 			alias,
 			alias,
@@ -364,7 +373,18 @@ func applyFieldExpr(builder fwork_server_orm.QueryBuilder, field string, expr fw
 		}
 	} else {
 		if gormBuilder.Schema != nil {
-			sqlField = quoteIdent(gormBuilder.Schema.Table) + "." + quoteIdent(field)
+			tableName := gormBuilder.Schema.Table
+			if strings.Contains(tableName, ".") {
+				parts := strings.Split(tableName, ".")
+				tableNameSchema := parts[0]
+				tableNameOnly := parts[1]
+
+				tableName = quoteIdent(tableNameSchema) + "." + quoteIdent(tableNameOnly)
+				sqlField = tableName + "." + quoteIdent(field)
+			} else {
+				sqlField = quoteIdent(gormBuilder.Schema.Table) + "." + quoteIdent(field)
+			}
+
 		} else {
 			sqlField = quoteIdent(field)
 		}

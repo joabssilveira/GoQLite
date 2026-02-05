@@ -5,9 +5,17 @@ All notable changes to **GoQLite** will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.3.2] - 2026-02-05
+
+### 🚀 Improved
+- feat(gorm): Support for schemas other than the standard public schema.
+
+### 🛠 Fixed
+- fix(gorm): GormQueryBuilder losts model when call And, Or and Not
+
 ---
 
-## v0.3.1
+## [v0.3.1] - 2026-01-30
 
 ### ✨ Added
 - Support for unlimited-depth relational filters using dot notation  
