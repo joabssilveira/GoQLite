@@ -294,32 +294,32 @@ func ParseNested(input string) []string {
 	return result
 }
 
-func ApplyFilter(builder QueryBuilder, filter Filter, applyField FieldExprApplier) QueryBuilder {
+func ApplyFilter(builder QueryBuilder, filter Filter, fieldExprApplier FieldExprApplier) QueryBuilder {
 
 	// Campos
 	for field, expr := range filter.Fields {
 		// builder = applyFieldExpr(builder, field, expr)
-		builder = applyField(builder, field, expr)
+		builder = fieldExprApplier(builder, field, expr)
 	}
 
 	// AND
 	for _, andItemFilter := range filter.And {
 		subBuilder := builder.Clone()
-		ApplyFilter(subBuilder, andItemFilter, applyField)
+		ApplyFilter(subBuilder, andItemFilter, fieldExprApplier)
 		builder = builder.And(subBuilder)
 	}
 
 	// OR
 	for _, orItemFilter := range filter.Or {
 		subBuilder := builder.Clone()
-		ApplyFilter(subBuilder, orItemFilter, applyField)
+		ApplyFilter(subBuilder, orItemFilter, fieldExprApplier)
 		builder = builder.Or(subBuilder)
 	}
 
 	// NOT
 	if filter.Not != nil {
 		subBuilder := builder.Clone()
-		ApplyFilter(subBuilder, *filter.Not, applyField)
+		ApplyFilter(subBuilder, *filter.Not, fieldExprApplier)
 		builder = builder.Not(subBuilder)
 	}
 

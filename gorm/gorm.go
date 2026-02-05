@@ -34,17 +34,23 @@ func (g *GormQueryBuilder) Where(cond string, args ...interface{}) fwork_server_
 }
 
 func (g *GormQueryBuilder) And(sub fwork_server_orm.QueryBuilder) fwork_server_orm.QueryBuilder {
+	model := g.Db.Statement.Model
 	g.Db = g.Db.Where(sub.Build())
+	g.Db.Statement.Model = model
 	return g
 }
 
 func (g *GormQueryBuilder) Or(sub fwork_server_orm.QueryBuilder) fwork_server_orm.QueryBuilder {
+	model := g.Db.Statement.Model
 	g.Db = g.Db.Or(sub.Build())
+	g.Db.Statement.Model = model
 	return g
 }
 
 func (g *GormQueryBuilder) Not(sub fwork_server_orm.QueryBuilder) fwork_server_orm.QueryBuilder {
+	model := g.Db.Statement.Model
 	g.Db = g.Db.Not(sub.Build())
+	g.Db.Statement.Model = model
 	return g
 }
 
@@ -453,9 +459,10 @@ func GormGetList[T any](db *gorm.DB, payload fwork_server_orm.QueryPayload) (fwo
 	countBuilder := NewGormQueryBuilder(db.Model(new(T)))
 	countBuilder = ApplyQuery(countBuilder, countPayload)
 
-	if err := countBuilder.Db.Count(&total).Error; err != nil {
-		return fwork_server_orm.GetListData[T]{}, err
-	}
+	// TODO remove comments
+	// if err := countBuilder.Db.Count(&total).Error; err != nil {
+	// 	return fwork_server_orm.GetListData[T]{}, err
+	// }
 
 	// =========================
 	// 2) DATA
@@ -537,7 +544,8 @@ func GormGetListHttp[T any](db *gorm.DB, r *http.Request, additionalWhere fwork_
 	payload.Nested = r.URL.Query().Get("nested")
 
 	// page -> skip
-	fwork_server_orm.ApplyPagination(&payload)
+	// It already exists in GormGetList.
+	// fwork_server_orm.ApplyPagination(&payload)
 
 	return GormGetList[T](db, payload)
 }
