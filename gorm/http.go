@@ -2,10 +2,7 @@ package fwork_server_gorm
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
-	"reflect"
-	"strings"
 
 	"github.com/gorilla/mux"
 	fwork_server_orm "github.com/joabssilveira/GoQLite/core"
@@ -90,40 +87,20 @@ func GormUpdateHandler[T any](
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := mux.Vars(r)["id"]
 
-		var old T
-		if err := db.First(&old, fmt.Sprintf("%s = ?", keyName), id).Error; err != nil {
-			http.Error(w, "Not found", http.StatusNotFound)
-			return
-		}
-
 		payload, err := resolve(r)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
-		// 🔒 Garante que a PK não é alterada (via reflexão padrão)
-		oldVal := reflect.ValueOf(&old).Elem()
-		newVal := reflect.ValueOf(&payload).Elem()
-
-		field := newVal.FieldByNameFunc(func(n string) bool {
-			return strings.EqualFold(n, keyName)
-		})
-
-		if field.IsValid() && field.CanSet() {
-			oldField := oldVal.FieldByNameFunc(func(n string) bool {
-				return strings.EqualFold(n, keyName)
-			})
-			field.Set(oldField)
-		}
-
-		if err := db.Model(&old).Updates(payload).Error; err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+		updated, err := GormUpdate(payload, id, db, keyName)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(old)
+		json.NewEncoder(w).Encode(updated)
 	}
 }

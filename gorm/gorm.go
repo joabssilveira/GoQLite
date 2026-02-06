@@ -479,10 +479,9 @@ func GormGetList[T any](db *gorm.DB, payload fwork_server_orm.QueryPayload) (fwo
 	countBuilder := NewGormQueryBuilder(db.Model(new(T)))
 	countBuilder = ApplyQuery(countBuilder, countPayload)
 
-	// TODO remove comments
-	// if err := countBuilder.Db.Count(&total).Error; err != nil {
-	// 	return fwork_server_orm.GetListData[T]{}, err
-	// }
+	if err := countBuilder.Db.Count(&total).Error; err != nil {
+		return fwork_server_orm.GetListData[T]{}, err
+	}
 
 	// =========================
 	// 2) DATA
@@ -631,4 +630,38 @@ func hasJoin(db *gorm.DB, alias string) bool {
 		}
 	}
 	return false
+}
+
+func GormUpdate[T any](
+	payload T,
+	id any,
+	db *gorm.DB,
+	keyName string,
+) (*T, error) {
+
+	var old T
+	if err := db.First(&old, fmt.Sprintf("%s = ?", keyName), id).Error; err != nil {
+		return nil, err
+	}
+
+	// 🔒 Garante que a PK não é alterada (via reflexão padrão)
+	oldVal := reflect.ValueOf(&old).Elem()
+	newVal := reflect.ValueOf(&payload).Elem()
+
+	field := newVal.FieldByNameFunc(func(n string) bool {
+		return strings.EqualFold(n, keyName)
+	})
+
+	if field.IsValid() && field.CanSet() {
+		oldField := oldVal.FieldByNameFunc(func(n string) bool {
+			return strings.EqualFold(n, keyName)
+		})
+		field.Set(oldField)
+	}
+
+	if err := db.Model(&old).Updates(payload).Error; err != nil {
+		return nil, err
+	}
+
+	return &old, nil
 }
