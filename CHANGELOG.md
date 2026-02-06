@@ -5,6 +5,13 @@ All notable changes to **GoQLite** will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+---
+
+## [v0.3.3] - 2026-02-06
+
+### 🚀 Improved
+- feat(gorm): The GormUpdate function is separate from GormUpdateHandler. This separates database logic and HTTP logic.
+
 ## [v0.3.2] - 2026-02-05
 
 ### 🚀 Improved
