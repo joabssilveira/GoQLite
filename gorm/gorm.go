@@ -632,6 +632,82 @@ func hasJoin(db *gorm.DB, alias string) bool {
 	return false
 }
 
+func indirect(v reflect.Value) reflect.Value {
+	for v.IsValid() && v.Kind() == reflect.Pointer {
+		v = v.Elem()
+	}
+	return v
+}
+
+func fieldByNameFold(v reflect.Value, name string) reflect.Value {
+	if v.Kind() != reflect.Struct {
+		return reflect.Value{}
+	}
+
+	return v.FieldByNameFunc(func(n string) bool {
+		return strings.EqualFold(n, name)
+	})
+}
+
+func parseColumnName(tag string, fallback string) string {
+	for _, part := range strings.Split(tag, ";") {
+		if strings.HasPrefix(part, "column:") {
+			return strings.TrimPrefix(part, "column:")
+		}
+	}
+	return fallback
+}
+
+func diffStruct[T any](old T, new T, keyName string) map[string]interface{} {
+	changes := make(map[string]interface{})
+
+	oldVal := reflect.Indirect(reflect.ValueOf(old))
+	newVal := reflect.Indirect(reflect.ValueOf(new))
+	typ := oldVal.Type()
+
+	for i := 0; i < oldVal.NumField(); i++ {
+		field := typ.Field(i)
+
+		// ignora PK
+		if strings.EqualFold(field.Name, keyName) {
+			continue
+		}
+
+		oldField := oldVal.Field(i).Interface()
+		newField := newVal.Field(i).Interface()
+
+		if !reflect.DeepEqual(oldField, newField) {
+			column := field.Tag.Get("gorm")
+			columnName := parseColumnName(column, field.Name)
+
+			changes[columnName] = newField
+		}
+	}
+
+	return changes
+}
+
+type PersistSanitizer interface {
+	SanitizeForPersist()
+}
+
+func GormCreate[T any](
+	payload T,
+	db *gorm.DB,
+) (*T, error) {
+
+	// 🔴 sanitiza se o tipo suportar
+	if s, ok := any(&payload).(PersistSanitizer); ok {
+		s.SanitizeForPersist()
+	}
+
+	if err := db.Create(&payload).Error; err != nil {
+		return nil, err
+	}
+
+	return &payload, nil
+}
+
 func GormUpdate[T any](
 	payload T,
 	id any,
@@ -639,27 +715,24 @@ func GormUpdate[T any](
 	keyName string,
 ) (*T, error) {
 
+	// 🔴 sanitiza se o tipo suportar
+	if s, ok := any(&payload).(PersistSanitizer); ok {
+		s.SanitizeForPersist()
+	}
+
 	var old T
+
 	if err := db.First(&old, fmt.Sprintf("%s = ?", keyName), id).Error; err != nil {
 		return nil, err
 	}
 
-	// 🔒 Garante que a PK não é alterada (via reflexão padrão)
-	oldVal := reflect.ValueOf(&old).Elem()
-	newVal := reflect.ValueOf(&payload).Elem()
+	changes := diffStruct(old, payload, keyName)
 
-	field := newVal.FieldByNameFunc(func(n string) bool {
-		return strings.EqualFold(n, keyName)
-	})
-
-	if field.IsValid() && field.CanSet() {
-		oldField := oldVal.FieldByNameFunc(func(n string) bool {
-			return strings.EqualFold(n, keyName)
-		})
-		field.Set(oldField)
+	if len(changes) == 0 {
+		return &old, nil
 	}
 
-	if err := db.Model(&old).Updates(payload).Error; err != nil {
+	if err := db.Model(&old).Updates(changes).Error; err != nil {
 		return nil, err
 	}
 

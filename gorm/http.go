@@ -52,14 +52,19 @@ func GormCreateHandler[T any](
 			return
 		}
 
-		if err := db.Create(&payload).Error; err != nil {
+		// if err := db.Create(&payload).Error; err != nil {
+		// 	http.Error(w, err.Error(), http.StatusInternalServerError)
+		// 	return
+		// }
+		created, err := GormCreate(payload, db)
+		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(payload)
+		json.NewEncoder(w).Encode(created)
 	}
 }
 
