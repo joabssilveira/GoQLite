@@ -7,6 +7,13 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ---
 
+## [v0.3.5] - 2026-02-06
+
+### 🛠 Fixed
+- fix: applyFieldExpr jsonb
+
+---
+
 ## [v0.3.3] - 2026-02-06
 
 ### 🚀 Improved
