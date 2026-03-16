@@ -333,6 +333,24 @@ func applyFieldExpr(builder fwork_server_orm.QueryBuilder, field string, expr fw
 			currentAlias := ""
 			var currentRel *schema.Relationship
 
+			// for i := 0; i < len(parts)-1; i++ {
+			// 	relationSnake := parts[i]
+			// 	relationName := fwork_server_orm.SnakeToCamel(relationSnake)
+
+			// 	stmt := &gorm.Statement{DB: db}
+			// 	_ = stmt.Parse(currentModel)
+
+			// 	currentRel = stmt.Schema.Relationships.Relations[relationName]
+			// 	if currentRel == nil {
+			// 		return builder
+			// 	}
+
+			// 	applyRelationJoinWithParentAlias(db, currentModel, currentRel, relationSnake, currentAlias)
+
+			// 	currentModel = reflect.New(currentRel.FieldSchema.ModelType).Interface()
+			// 	currentAlias = relationSnake
+			// }
+			remainingParts := parts
 			for i := 0; i < len(parts)-1; i++ {
 				relationSnake := parts[i]
 				relationName := fwork_server_orm.SnakeToCamel(relationSnake)
@@ -342,34 +360,52 @@ func applyFieldExpr(builder fwork_server_orm.QueryBuilder, field string, expr fw
 
 				currentRel = stmt.Schema.Relationships.Relations[relationName]
 				if currentRel == nil {
-					return builder
+					isJSONB = true
+					column := remainingParts[0]
+					path := remainingParts[1:]
+
+					sqlField = fmt.Sprintf(
+						"%s.%s #>> '{%s}'",
+						quoteIdent(currentAlias),
+						quoteIdent(column),
+						strings.Join(path, ","),
+					)
+
+					break
+
+					// newParts := strings.Join(remainingParts, ".")
+					// return applyFieldExpr(builder, newParts, expr)
 				}
 
 				applyRelationJoinWithParentAlias(db, currentModel, currentRel, relationSnake, currentAlias)
 
 				currentModel = reflect.New(currentRel.FieldSchema.ModelType).Interface()
 				currentAlias = relationSnake
+
+				remainingParts = remainingParts[1:]
 			}
 
-			// último item é o campo real
-			lastField := parts[len(parts)-1]
+			if !isJSONB {
+				// último item é o campo real
+				lastField := parts[len(parts)-1]
 
-			stmt = &gorm.Statement{DB: db}
-			_ = stmt.Parse(currentModel)
+				stmt = &gorm.Statement{DB: db}
+				_ = stmt.Parse(currentModel)
 
-			var dbFieldName string
-			for _, f := range stmt.Schema.Fields {
-				if f.Name == fwork_server_orm.SnakeToCamel(lastField) || f.DBName == lastField {
-					dbFieldName = f.DBName
-					break
+				var dbFieldName string
+				for _, f := range stmt.Schema.Fields {
+					if f.Name == fwork_server_orm.SnakeToCamel(lastField) || f.DBName == lastField {
+						dbFieldName = f.DBName
+						break
+					}
 				}
-			}
 
-			if dbFieldName == "" {
-				dbFieldName = lastField // fallback seguro
-			}
+				if dbFieldName == "" {
+					dbFieldName = lastField // fallback seguro
+				}
 
-			sqlField = quoteIdent(currentAlias) + "." + quoteIdent(dbFieldName)
+				sqlField = quoteIdent(currentAlias) + "." + quoteIdent(dbFieldName)
+			}
 		}
 	} else {
 		if gormBuilder.Schema != nil {
