@@ -7,7 +7,14 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ---
 
-## [v0.3.5] - 2026-02-06
+## [v0.3.6] - 2026-03-19
+
+### 🛠 Fixed
+- fix: GormDataType, GormDBDataType
+
+---
+
+## [v0.3.5] - 2026-03-16
 
 ### 🛠 Fixed
 - fix: applyFieldExpr jsonb
