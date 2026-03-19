@@ -4,6 +4,9 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
+
+	"gorm.io/gorm"
+	"gorm.io/gorm/schema"
 )
 
 // request...
@@ -106,6 +109,14 @@ type JSONB[T any] struct {
 // Value converts to JSON before saving to the database
 func (j JSONB[T]) Value() (driver.Value, error) {
 	return json.Marshal(j.Data)
+}
+
+func (JSONB[T]) GormDataType() string {
+	return "jsonb"
+}
+
+func (JSONB[T]) GormDBDataType(db *gorm.DB, field *schema.Field) string {
+	return "jsonb"
 }
 
 // Scan converts JSON from the database back to the Go type.
