@@ -762,3 +762,34 @@ func GormUpdate[T any](
 
 	return &payload, nil
 }
+
+// func GormUpdate[T any](
+// 	payload T,
+// 	id any,
+// 	db *gorm.DB,
+// 	keyName string,
+// ) (*T, error) {
+
+// 	// 🔴 sanitiza se o tipo suportar
+// 	if s, ok := any(&payload).(PersistSanitizer); ok {
+// 		s.SanitizeForPersist()
+// 	}
+
+// 	var old T
+
+// 	if err := db.First(&old, fmt.Sprintf("%s = ?", keyName), id).Error; err != nil {
+// 		return nil, err
+// 	}
+
+// 	changes := diffStruct(old, payload, keyName)
+
+// 	if len(changes) == 0 {
+// 		return &old, nil
+// 	}
+
+// 	if err := db.Model(&old).Updates(changes).Error; err != nil {
+// 		return nil, err
+// 	}
+
+// 	return &old, nil
+// }

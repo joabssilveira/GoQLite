@@ -7,6 +7,13 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ---
 
+## [v0.3.7] - 2026-03-24
+
+### 🛠 Fixed
+- fix: GormUpdate now uses the struct to execute, not the differences anymore.
+
+---
+
 ## [v0.3.6] - 2026-03-19
 
 ### 🛠 Fixed
