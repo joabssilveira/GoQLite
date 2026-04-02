@@ -138,6 +138,12 @@ func (b *FilterBuilder[T]) NotExists(field Field[T]) *FilterBuilder[T] {
 	})
 }
 
+func (b *FilterBuilder[T]) Op(field Field[T], v FieldExprOp) *FilterBuilder[T] {
+	return b.set(field, func(e *FieldExpr) {
+		e.Op = &v
+	})
+}
+
 //
 
 func (b *FilterBuilder[T]) And(filters ...*FilterBuilder[T]) *FilterBuilder[T] {
@@ -163,26 +169,45 @@ func (b *FilterBuilder[T]) Not(f *FilterBuilder[T]) *FilterBuilder[T] {
 
 // EXAMPLE
 
-type realmUnit struct {
-	Uuid      string `json:"uuid,omitempty" gorm:"column:uuid;type:uuid;primaryKey"`
-	Name      string `json:"name,omitempty" gorm:"column:name"`
-	RealmUuid string `json:"realm_uuid,omitempty" gorm:"column:realm_uuid;type:uuid;not null"`
+type MyModelExample struct {
+	Uuid        string                 `json:"uuid" gorm:"column:uuid;type:uuid;primaryKey"`
+	SomeProp    string                 `json:"some_prop" gorm:"column:name"`
+	AnotherProp string                 `json:"another_prop" gorm:"column:realm_uuid;type:uuid;not null"`
+	SubDoc      []MySubdocModelExample `json:"subdoc" gorm:"type:jsonb"`
+}
+
+type MySubdocModelExample struct {
+	Uuid        string `json:"uuid,omitempty" gorm:"column:uuid;type:uuid;primaryKey"`
+	SomeProp    string `json:"some_prop,omitempty" gorm:"column:name"`
+	AnotherProp string `json:"another_prop,omitempty" gorm:"column:realm_uuid;type:uuid;not null"`
 }
 
 const (
-	realmUnitUuid      Field[realmUnit] = "uuid"
-	realmUnitName      Field[realmUnit] = "name"
-	realmUnitRealmUuid Field[realmUnit] = "realm_uuid"
+	MyModelExampleUuid        Field[MyModelExample] = "uuid"
+	MyModelExampleSomeProp    Field[MyModelExample] = "some_prop"
+	MyModelExampleAnotherProp Field[MyModelExample] = "another_prop"
+	MyModelExampleSubDoc      Field[MyModelExample] = "subdoc"
 )
 
 func example() Filter {
-	additional := NewFilter[realmUnit]().
-		Eq(realmUnitUuid, "value").
-		In(realmUnitRealmUuid, "valuea", "valueb").
+	filter := NewFilter[MyModelExample]().
+		Eq(MyModelExampleUuid, "value").
+		In(MyModelExampleAnotherProp, "valuea", "valueb").
 		And(
-			NewFilter[realmUnit]().Like(realmUnitName, "%admin%"),
+			NewFilter[MyModelExample]().Like(MyModelExampleSomeProp, "%admin%"),
 		).
 		Build()
 
-	return additional
+	return filter
+}
+
+func exampleCustomOp() Filter {
+	filter := NewFilter[MyModelExample]().
+		Op(MyModelExampleSubDoc, FieldExprOp{
+			Op:    "@>",
+			Value: "[{\"uuid\": \"XXX\"}]",
+		}).
+		Build()
+
+	return filter
 }

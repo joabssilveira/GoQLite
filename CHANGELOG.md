@@ -7,6 +7,48 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ---
 
+## [v0.3.8] - 2026-04-02
+
+### ✨ Added
+- It is now possible to filter using a custom operator. 
+  This is useful for using specific database operators that are not covered by the standard operators.
+  
+  ```go
+  type MyModelExample struct {
+    Uuid        string                 `json:"uuid" gorm:"column:uuid;type:uuid;primaryKey"`
+    SomeProp    string                 `json:"some_prop" gorm:"column:name"`
+    AnotherProp string                 `json:"another_prop" gorm:"column:realm_uuid;type:uuid;not null"`
+    SubDoc      []MySubdocModelExample `json:"subdoc" gorm:"type:jsonb"`
+  }
+
+  type MySubdocModelExample struct {
+    Uuid        string `json:"uuid,omitempty" gorm:"column:uuid;type:uuid;primaryKey"`
+    SomeProp    string `json:"some_prop,omitempty" gorm:"column:name"`
+    AnotherProp string `json:"another_prop,omitempty" gorm:"column:realm_uuid;type:uuid;not null"`
+  }
+
+  const (
+    MyModelExampleUuid        Field[MyModelExample] = "uuid"
+    MyModelExampleSomeProp    Field[MyModelExample] = "some_prop"
+    MyModelExampleAnotherProp Field[MyModelExample] = "another_prop"
+    MyModelExampleSubDoc      Field[MyModelExample] = "subdoc"
+  )
+
+  func exampleCustomOp() Filter {
+    filter := NewFilter[MyModelExample]().
+      Op(MyModelExampleSubDoc, FieldExprOp{
+        Op:    "@>",
+        Value: "[{\"uuid\": \"XXX\"}]",
+      }).
+      Build()
+
+    return filter
+  }
+
+  ```
+
+---
+
 ## [v0.3.7] - 2026-03-24
 
 ### 🛠 Fixed

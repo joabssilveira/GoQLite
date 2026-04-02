@@ -49,6 +49,11 @@ type Filter struct {
 	Fields map[string]FieldExpr `json:"-"`
 }
 
+type FieldExprOp struct {
+	Op    string      `json:"op,omitempty"`
+	Value interface{} `json:"value,omitempty"`
+}
+
 type FieldExpr struct {
 	Eq      interface{}   `json:"$eq,omitempty"`
 	Ne      interface{}   `json:"$ne,omitempty"`
@@ -63,6 +68,8 @@ type FieldExpr struct {
 	Between []interface{} `json:"$between,omitempty"`
 	Exists  *bool         `json:"$exists,omitempty"`
 	IsNull  *bool         `json:"$null,omitempty"`
+
+	Op *FieldExprOp `json:"$op,omitempty"`
 }
 
 // ...filter

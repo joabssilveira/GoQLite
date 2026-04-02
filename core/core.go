@@ -27,7 +27,8 @@ func (f FieldExpr) isEmpty() bool {
 		f.ILike == "" &&
 		len(f.Between) == 0 &&
 		f.Exists == nil &&
-		f.IsNull == nil
+		f.IsNull == nil &&
+		f.Op == nil
 }
 
 func parseNestedRecursive(s string, prefix string, result *[]string) {

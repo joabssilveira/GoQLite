@@ -316,8 +316,13 @@ func applyFieldExpr(builder fwork_server_orm.QueryBuilder, field string, expr fw
 		relName := fwork_server_orm.SnakeToCamel(first)
 		_, isRelation := stmt.Schema.Relationships.Relations[relName]
 
-		// ❌ NÃO é relação → JSONB (igual antes)
-		if !isRelation {
+		customjsonop := expr.Op != nil && expr.Op.Op == "@>"
+
+		if customjsonop {
+			sqlField = quoteIdent(first) // só a coluna raiz (subjects)
+			isJSONB = false              // não precisa cast
+		} else if !isRelation && !customjsonop {
+			// ❌ NÃO é relação → JSONB (igual antes)
 			isJSONB = true
 			column := first
 			path := rest
@@ -492,6 +497,10 @@ func applyFieldExpr(builder fwork_server_orm.QueryBuilder, field string, expr fw
 		} else {
 			builder = builder.Where(sqlField + " IS NOT NULL")
 		}
+	}
+
+	if expr.Op != nil {
+		builder = builder.Where(sqlField+" "+expr.Op.Op+" ?", expr.Op.Value)
 	}
 
 	return builder
