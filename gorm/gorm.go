@@ -772,7 +772,7 @@ func GormUpdate[T any](
 	return &payload, nil
 }
 
-// func GormUpdate[T any](
+// func GormUpdate2[T any](
 // 	payload T,
 // 	id any,
 // 	db *gorm.DB,
