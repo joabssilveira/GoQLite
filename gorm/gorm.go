@@ -250,6 +250,17 @@ func applyRelationJoinWithParentAlias(
 		stmt := &gorm.Statement{DB: db}
 		_ = stmt.Parse(parentModel)
 		parentTable = stmt.Schema.Table
+
+		if strings.Contains(parentTable, ".") {
+			parts := strings.Split(parentTable, ".")
+			parentTableSchema := parts[0]
+			parentTableNameOnly := parts[1]
+			parentTable = quoteIdent(parentTableSchema) + "." + quoteIdent(parentTableNameOnly)
+		} else {
+			parentTable = quoteIdent(parentTable)
+		}
+	} else {
+		parentTable = quoteIdent(parentTable)
 	}
 
 	relationTable := rel.FieldSchema.Table
@@ -265,7 +276,8 @@ func applyRelationJoinWithParentAlias(
 	var join string
 	if rel.Type == schema.BelongsTo {
 		join = fmt.Sprintf(
-			`LEFT JOIN %s "%s" ON "%s"."%s" = "%s"."%s"`,
+			// `LEFT JOIN %s "%s" ON "%s"."%s" = "%s"."%s"`,
+			`LEFT JOIN %s "%s" ON "%s"."%s" = %s."%s"`,
 			relationTable,
 			alias,
 			alias,
@@ -275,7 +287,8 @@ func applyRelationJoinWithParentAlias(
 		)
 	} else {
 		join = fmt.Sprintf(
-			`LEFT JOIN %s "%s" ON "%s"."%s" = "%s"."%s"`,
+			// `LEFT JOIN %s "%s" ON "%s"."%s" = "%s"."%s"`,
+			`LEFT JOIN %s "%s" ON "%s"."%s" = %s."%s"`,
 			relationTable,
 			alias,
 			alias,
@@ -517,16 +530,17 @@ func GormGetList[T any](db *gorm.DB, payload fwork_server_orm.QueryPayload) (fwo
 	// 1) COUNT
 	// =========================
 
-	var total int64
+	// var total int64
+	var total int64 = 0
 
-	countPayload := fwork_server_orm.ExtractCountPayload(payload)
+	// countPayload := fwork_server_orm.ExtractCountPayload(payload)
 
-	countBuilder := NewGormQueryBuilder(db.Model(new(T)))
-	countBuilder = ApplyQuery(countBuilder, countPayload)
+	// countBuilder := NewGormQueryBuilder(db.Model(new(T)))
+	// countBuilder = ApplyQuery(countBuilder, countPayload)
 
-	if err := countBuilder.Db.Count(&total).Error; err != nil {
-		return fwork_server_orm.GetListData[T]{}, err
-	}
+	// if err := countBuilder.Db.Count(&total).Error; err != nil {
+	// 	return fwork_server_orm.GetListData[T]{}, err
+	// }
 
 	// =========================
 	// 2) DATA

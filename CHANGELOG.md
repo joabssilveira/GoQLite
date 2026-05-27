@@ -7,6 +7,13 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ---
 
+## [v0.3.9] - 2026-05-27
+
+### 🛠 Fixed
+- fix: Gorm was generating the wrong related table name in the applyRelationJoinWithParentAlias ​​function.
+
+---
+
 ## [v0.3.8] - 2026-04-02
 
 ### ✨ Added
