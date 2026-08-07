@@ -98,8 +98,6 @@ type Order struct {
 	Dir   string `json:"dir"` // asc | desc
 }
 
-type FieldExprApplier func(builder QueryBuilder, field string, expr FieldExpr) QueryBuilder
-
 // DB TYPES
 
 // JSONB is a generic wrapper for saving any struct/slice/map as jsonb in Postgres.

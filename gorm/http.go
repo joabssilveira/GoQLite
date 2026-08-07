@@ -6,14 +6,15 @@ import (
 
 	"github.com/gorilla/mux"
 	fwork_server_orm "github.com/joabssilveira/GoQLite/core"
+	fwork_server_orm_implementation "github.com/joabssilveira/GoQLite/implementation"
 	"gorm.io/gorm"
 )
 
 // GET
 
-func GormListHandler[T any](db *gorm.DB) http.HandlerFunc {
+func GormListHandler[T any](db *gorm.DB, dbUtils fwork_server_orm_implementation.DbUtils) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		resp, err := GormGetListHttp[T](db, r, fwork_server_orm.Filter{})
+		resp, err := GormGetListHttp[T](db, r, fwork_server_orm.Filter{}, dbUtils)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return

@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+## [v0.4.0] - 2026-08-07
+
+### ✨ Added
+- Postgres unaccent support in Eq, Ne, Like and iLike
+
+### 💥 Breaking Changes
+- GormGetListHttp agora precisa de um novo parametro do tipo DbUtils
+
+  ```go
+  GormGetListHttp[MyStruct](myGormDb, myRequest, myAdditionalWhere, DbUtilsPostgres{
+    Settings: DbUtilsPostgresSettings{
+      Unaccent: true,
+    },
+  })
+  ```
+---
 
 ## [v0.3.9] - 2026-05-27
 
