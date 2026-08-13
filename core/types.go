@@ -1,36 +1,5 @@
 package fwork_server_orm
 
-// request...
-
-type QueryPayload struct {
-	Where  Filter   `json:"where,omitempty"`
-	Order  []Order  `json:"sort,omitempty"`
-	Select []string `json:"select,omitempty"`
-	Nested string   `json:"nested,omitempty"`
-	Limit  *int     `json:"limit,omitempty"`
-	Offset *int     `json:"skip,omitempty"`
-	Page   *int     `json:"page,omitempty"`
-}
-
-// ...request
-
-// response...
-
-type GetListData[T any] struct {
-	Payload    []T             `json:"payload,omitempty"`
-	Pagination *PaginationMeta `json:"pagination,omitempty"`
-}
-
-type PaginationMeta struct {
-	Skip        *int `json:"skip,omitempty"`
-	Limit       *int `json:"limit,omitempty"`
-	Count       *int `json:"count,omitempty"`
-	PageCount   *int `json:"pageCount,omitempty"`
-	CurrentPage *int `json:"currentPage,omitempty"`
-}
-
-// ...response
-
 // filter...
 
 type Filter struct {
@@ -88,3 +57,34 @@ type Order struct {
 	Field string `json:"field"`
 	Dir   string `json:"dir"` // asc | desc
 }
+
+// request...
+
+type QueryPayload struct {
+	Where  Filter   `json:"where,omitempty"`
+	Order  []Order  `json:"sort,omitempty"`
+	Select []string `json:"select,omitempty"`
+	Nested string   `json:"nested,omitempty"`
+	Limit  *int     `json:"limit,omitempty"`
+	Offset *int     `json:"skip,omitempty"`
+	Page   *int     `json:"page,omitempty"`
+}
+
+// ...request
+
+// response...
+
+type GetListData[T any] struct {
+	Payload    []T             `json:"payload,omitempty"`
+	Pagination *PaginationMeta `json:"pagination,omitempty"`
+}
+
+type PaginationMeta struct {
+	Skip        *int `json:"skip,omitempty"`
+	Limit       *int `json:"limit,omitempty"`
+	Count       *int `json:"count,omitempty"`
+	PageCount   *int `json:"pageCount,omitempty"`
+	CurrentPage *int `json:"currentPage,omitempty"`
+}
+
+// ...response
