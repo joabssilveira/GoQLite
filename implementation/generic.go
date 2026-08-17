@@ -1,6 +1,6 @@
-package fwork_server_orm_implementation
+package goqliteimplementation
 
-import fwork_server_orm "github.com/joabssilveira/GoQLite/core"
+import "github.com/joabssilveira/GoQLite/goqlite"
 
 func CastIfJSONB(sqlField string, isJSONB bool, value interface{}) string {
 	if !isJSONB {
@@ -17,48 +17,10 @@ func CastIfJSONB(sqlField string, isJSONB bool, value interface{}) string {
 	}
 }
 
-type FieldExprApplier func(builder fwork_server_orm.QueryBuilder, field string, expr fwork_server_orm.FieldExpr, dbUtils DbUtils) fwork_server_orm.QueryBuilder
-
-func ApplyFilter(builder fwork_server_orm.QueryBuilder, filter fwork_server_orm.Filter, fieldExprApplier FieldExprApplier, dbUtils DbUtils) fwork_server_orm.QueryBuilder {
-
-	// Campos
-	for field, expr := range filter.Fields {
-		// builder = applyFieldExpr(builder, field, expr)
-		builder = fieldExprApplier(builder, field, expr, dbUtils)
-	}
-
-	// AND
-	for _, andItemFilter := range filter.And {
-		subBuilder := builder.Clone()
-		ApplyFilter(subBuilder, andItemFilter, fieldExprApplier, dbUtils)
-		builder = builder.And(subBuilder)
-	}
-
-	// OR
-	for _, orItemFilter := range filter.Or {
-		subBuilder := builder.Clone()
-		ApplyFilter(subBuilder, orItemFilter, fieldExprApplier, dbUtils)
-		builder = builder.Or(subBuilder)
-	}
-
-	// NOT
-	if filter.Not != nil {
-		subBuilder := builder.Clone()
-		ApplyFilter(subBuilder, *filter.Not, fieldExprApplier, dbUtils)
-		builder = builder.Not(subBuilder)
-	}
-
-	return builder
-}
-
-type DbUtils interface {
-	GetFieldExpr(builder fwork_server_orm.QueryBuilder, expr fwork_server_orm.FieldExpr, sqlField string, isJSONB bool) fwork_server_orm.QueryBuilder
-}
-
 type DbUtilsGeneric struct {
 }
 
-func (u DbUtilsGeneric) GetFieldExpr(builder fwork_server_orm.QueryBuilder, expr fwork_server_orm.FieldExpr, sqlField string, isJSONB bool) fwork_server_orm.QueryBuilder {
+func (u DbUtilsGeneric) GetFieldExpr(builder goqlite.QueryBuilder, expr goqlite.FieldExpr, sqlField string, isJSONB bool) goqlite.QueryBuilder {
 	if expr.Eq != nil {
 		builder = builder.Where(sqlField+" = ?", expr.Eq)
 	}

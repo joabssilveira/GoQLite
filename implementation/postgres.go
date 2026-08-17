@@ -1,6 +1,6 @@
-package fwork_server_orm_implementation
+package goqliteimplementation
 
-import fwork_server_orm "github.com/joabssilveira/GoQLite/core"
+import "github.com/joabssilveira/GoQLite/goqlite"
 
 func CastIfJSONBPostgres(sqlField string, isJSONB bool, value interface{}) string {
 	if !isJSONB {
@@ -25,7 +25,7 @@ type DbUtilsPostgres struct {
 	Settings DbUtilsPostgresSettings `json:"settings,omitempty"`
 }
 
-func (u DbUtilsPostgres) GetFieldExpr(builder fwork_server_orm.QueryBuilder, expr fwork_server_orm.FieldExpr, sqlField string, isJSONB bool) fwork_server_orm.QueryBuilder {
+func (u DbUtilsPostgres) GetFieldExpr(builder goqlite.QueryBuilder, expr goqlite.FieldExpr, sqlField string, isJSONB bool) goqlite.QueryBuilder {
 	if expr.Eq != nil {
 		if u.Settings.Unaccent {
 			if s, ok := expr.Eq.(string); ok {

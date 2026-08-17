@@ -1,4 +1,4 @@
-package fwork_server_gorm
+package goqlitegorm
 
 import (
 	"database/sql/driver"

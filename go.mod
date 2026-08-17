@@ -2,10 +2,7 @@ module github.com/joabssilveira/GoQLite
 
 go 1.24.2
 
-require (
-	github.com/gorilla/mux v1.8.1
-	gorm.io/gorm v1.31.1
-)
+require gorm.io/gorm v1.31.1
 
 require (
 	github.com/jinzhu/inflection v1.0.0 // indirect

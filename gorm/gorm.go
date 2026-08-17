@@ -1,4 +1,5 @@
-package fwork_server_gorm
+// TODO-rename to goqlite
+package goqlitegorm
 
 import (
 	"encoding/json"
@@ -8,8 +9,7 @@ import (
 
 	"strings"
 
-	fwork_server_orm "github.com/joabssilveira/GoQLite/core"
-	fwork_server_orm_implementation "github.com/joabssilveira/GoQLite/implementation"
+	"github.com/joabssilveira/GoQLite/goqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/schema"
 )
@@ -19,7 +19,7 @@ type GormQueryBuilder struct {
 	Schema *schema.Schema
 }
 
-func NewGormQueryBuilder(db *gorm.DB) *GormQueryBuilder {
+func newGormQueryBuilder(db *gorm.DB) *GormQueryBuilder {
 	stmt := &gorm.Statement{DB: db}
 	_ = stmt.Parse(db.Statement.Model)
 
@@ -29,48 +29,10 @@ func NewGormQueryBuilder(db *gorm.DB) *GormQueryBuilder {
 	}
 }
 
-func (g *GormQueryBuilder) Where(cond string, args ...interface{}) fwork_server_orm.QueryBuilder {
-	g.Db = g.Db.Where(cond, args...)
-	return g
-}
-
-func (g *GormQueryBuilder) And(sub fwork_server_orm.QueryBuilder) fwork_server_orm.QueryBuilder {
-	model := g.Db.Statement.Model
-	g.Db = g.Db.Where(sub.Build())
-	g.Db.Statement.Model = model
-	return g
-}
-
-func (g *GormQueryBuilder) Or(sub fwork_server_orm.QueryBuilder) fwork_server_orm.QueryBuilder {
-	model := g.Db.Statement.Model
-	g.Db = g.Db.Or(sub.Build())
-	g.Db.Statement.Model = model
-	return g
-}
-
-func (g *GormQueryBuilder) Not(sub fwork_server_orm.QueryBuilder) fwork_server_orm.QueryBuilder {
-	model := g.Db.Statement.Model
-	g.Db = g.Db.Not(sub.Build())
-	g.Db.Statement.Model = model
-	return g
-}
-
-func (g *GormQueryBuilder) Build() interface{} {
-	return g.Db
-}
-
-func (g *GormQueryBuilder) Clone() fwork_server_orm.QueryBuilder {
-	newDB := g.Db.Session(&gorm.Session{NewDB: true})
-	return &GormQueryBuilder{
-		Db:     newDB,
-		Schema: g.Schema, // 🔥 mantém schema
-	}
-}
-
-func ApplyQuery(builder *GormQueryBuilder, payload fwork_server_orm.QueryPayload, dbUtils fwork_server_orm_implementation.DbUtils) *GormQueryBuilder {
+func applyQuery(builder *GormQueryBuilder, payload goqlite.QueryPayload, dbUtils goqlite.DbUtils) *GormQueryBuilder {
 	// WHERE
-	ApplyJoinsFromFilter(builder.Db, builder.Db.Statement.Model, payload.Where)
-	builder = fwork_server_orm_implementation.ApplyFilter(builder, payload.Where, applyFieldExpr, dbUtils).(*GormQueryBuilder)
+	applyJoinsFromFilter(builder.Db, builder.Db.Statement.Model, payload.Where)
+	builder = goqlite.ApplyFilter(builder, payload.Where, applyFieldExpr, dbUtils).(*GormQueryBuilder)
 
 	// SELECT
 	if len(payload.Select) > 0 {
@@ -117,7 +79,7 @@ func ApplyQuery(builder *GormQueryBuilder, payload fwork_server_orm.QueryPayload
 
 	// NESTED (join automático)
 	if payload.Nested != "" {
-		tree := fwork_server_orm.ParseNestedTree(payload.Nested)
+		tree := goqlite.ParseNestedTree(payload.Nested)
 		for _, node := range tree {
 			applyNestedNode(builder.Db, builder.Db.Statement.Model, node, "", dbUtils)
 		}
@@ -129,12 +91,12 @@ func ApplyQuery(builder *GormQueryBuilder, payload fwork_server_orm.QueryPayload
 func toGormRelationPath(path string) string {
 	parts := strings.Split(path, ".")
 	for i, p := range parts {
-		parts[i] = fwork_server_orm.SnakeToCamel(p)
+		parts[i] = goqlite.SnakeToCamel(p)
 	}
 	return strings.Join(parts, ".")
 }
 
-func applyNestedNode(db *gorm.DB, parentModel any, node *fwork_server_orm.NestedNode, prefix string, dbUtils fwork_server_orm_implementation.DbUtils) {
+func applyNestedNode(db *gorm.DB, parentModel any, node *goqlite.NestedNode, prefix string, dbUtils goqlite.DbUtils) {
 	// resolve nome real da relação no struct
 	gormName := toGormRelationPath(node.Name)
 
@@ -161,8 +123,8 @@ func applyNestedNode(db *gorm.DB, parentModel any, node *fwork_server_orm.Nested
 				}
 			}
 
-			sub := NewGormQueryBuilder(tx)
-			sub = ApplyQuery(sub, *node.Query, dbUtils)
+			sub := newGormQueryBuilder(tx)
+			sub = applyQuery(sub, *node.Query, dbUtils)
 			return sub.Db
 		}
 		return tx
@@ -304,24 +266,7 @@ func applyRelationJoinWithParentAlias(
 	}
 }
 
-// func getUnaccent(s string) string {
-// 	t := norm.NFD.String(s)
-
-// 	var b strings.Builder
-// 	b.Grow(len(t))
-
-// 	for _, r := range t {
-// 		// Remove marcas diacríticas (acentos)
-// 		if unicode.Is(unicode.Mn, r) {
-// 			continue
-// 		}
-// 		b.WriteRune(r)
-// 	}
-
-// 	return norm.NFC.String(b.String())
-// }
-
-func applyFieldExpr(builder fwork_server_orm.QueryBuilder, field string, expr fwork_server_orm.FieldExpr, dbUtils fwork_server_orm_implementation.DbUtils) fwork_server_orm.QueryBuilder {
+func applyFieldExpr(builder goqlite.QueryBuilder, field string, expr goqlite.FieldExpr, dbUtils goqlite.DbUtils) goqlite.QueryBuilder {
 	gormBuilder, ok := builder.(*GormQueryBuilder)
 	if !ok {
 		return builder
@@ -344,7 +289,7 @@ func applyFieldExpr(builder fwork_server_orm.QueryBuilder, field string, expr fw
 		}
 
 		// tenta resolver o PRIMEIRO nível como relação
-		relName := fwork_server_orm.SnakeToCamel(first)
+		relName := goqlite.SnakeToCamel(first)
 		_, isRelation := stmt.Schema.Relationships.Relations[relName]
 
 		customjsonop := expr.Op != nil && expr.Op.Op == "@>"
@@ -369,27 +314,10 @@ func applyFieldExpr(builder fwork_server_orm.QueryBuilder, field string, expr fw
 			currentAlias := ""
 			var currentRel *schema.Relationship
 
-			// for i := 0; i < len(parts)-1; i++ {
-			// 	relationSnake := parts[i]
-			// 	relationName := fwork_server_orm.SnakeToCamel(relationSnake)
-
-			// 	stmt := &gorm.Statement{DB: db}
-			// 	_ = stmt.Parse(currentModel)
-
-			// 	currentRel = stmt.Schema.Relationships.Relations[relationName]
-			// 	if currentRel == nil {
-			// 		return builder
-			// 	}
-
-			// 	applyRelationJoinWithParentAlias(db, currentModel, currentRel, relationSnake, currentAlias)
-
-			// 	currentModel = reflect.New(currentRel.FieldSchema.ModelType).Interface()
-			// 	currentAlias = relationSnake
-			// }
 			remainingParts := parts
 			for i := 0; i < len(parts)-1; i++ {
 				relationSnake := parts[i]
-				relationName := fwork_server_orm.SnakeToCamel(relationSnake)
+				relationName := goqlite.SnakeToCamel(relationSnake)
 
 				stmt := &gorm.Statement{DB: db}
 				_ = stmt.Parse(currentModel)
@@ -408,9 +336,6 @@ func applyFieldExpr(builder fwork_server_orm.QueryBuilder, field string, expr fw
 					)
 
 					break
-
-					// newParts := strings.Join(remainingParts, ".")
-					// return applyFieldExpr(builder, newParts, expr)
 				}
 
 				applyRelationJoinWithParentAlias(db, currentModel, currentRel, relationSnake, currentAlias)
@@ -430,7 +355,7 @@ func applyFieldExpr(builder fwork_server_orm.QueryBuilder, field string, expr fw
 
 				var dbFieldName string
 				for _, f := range stmt.Schema.Fields {
-					if f.Name == fwork_server_orm.SnakeToCamel(lastField) || f.DBName == lastField {
+					if f.Name == goqlite.SnakeToCamel(lastField) || f.DBName == lastField {
 						dbFieldName = f.DBName
 						break
 					}
@@ -462,78 +387,6 @@ func applyFieldExpr(builder fwork_server_orm.QueryBuilder, field string, expr fw
 		}
 	}
 
-	// =========================
-	// Operadores
-	// =========================
-
-	// if expr.Eq != nil {
-	// 	builder = builder.Where(sqlField+" = ?", expr.Eq)
-	// }
-
-	// if expr.Ne != nil {
-	// 	builder = builder.Where(sqlField+" <> ?", expr.Ne)
-	// }
-
-	// if expr.Gt != nil {
-	// 	builder = builder.Where(fwork_server_orm.CastIfJSONB(sqlField, isJSONB, expr.Gt)+" > ?", expr.Gt)
-	// }
-
-	// if expr.Gte != nil {
-	// 	builder = builder.Where(fwork_server_orm.CastIfJSONB(sqlField, isJSONB, expr.Gte)+" >= ?", expr.Gte)
-	// }
-
-	// if expr.Lt != nil {
-	// 	builder = builder.Where(fwork_server_orm.CastIfJSONB(sqlField, isJSONB, expr.Lt)+" < ?", expr.Lt)
-	// }
-
-	// if expr.Lte != nil {
-	// 	builder = builder.Where(fwork_server_orm.CastIfJSONB(sqlField, isJSONB, expr.Lte)+" <= ?", expr.Lte)
-	// }
-
-	// if len(expr.In) > 0 {
-	// 	builder = builder.Where(sqlField+" IN ?", expr.In)
-	// }
-
-	// if len(expr.Nin) > 0 {
-	// 	builder = builder.Where(sqlField+" NOT IN ?", expr.Nin)
-	// }
-
-	// if expr.Like != "" {
-	// 	builder = builder.Where(sqlField+" LIKE ?", "%"+expr.Like+"%")
-	// }
-
-	// if expr.ILike != "" {
-	// 	builder = builder.Where(sqlField+" ILIKE ?", "%"+expr.ILike+"%")
-	// }
-
-	// if len(expr.Between) == 2 {
-	// 	builder = builder.Where(
-	// 		fwork_server_orm.CastIfJSONB(sqlField, isJSONB, expr.Between[0])+" BETWEEN ? AND ?",
-	// 		expr.Between[0],
-	// 		expr.Between[1],
-	// 	)
-	// }
-
-	// if expr.Exists != nil {
-	// 	if *expr.Exists {
-	// 		builder = builder.Where(sqlField + " IS NOT NULL")
-	// 	} else {
-	// 		builder = builder.Where(sqlField + " IS NULL")
-	// 	}
-	// }
-
-	// if expr.IsNull != nil {
-	// 	if *expr.IsNull {
-	// 		builder = builder.Where(sqlField + " IS NULL")
-	// 	} else {
-	// 		builder = builder.Where(sqlField + " IS NOT NULL")
-	// 	}
-	// }
-
-	// if expr.Op != nil {
-	// 	builder = builder.Where(sqlField+" "+expr.Op.Op+" ?", expr.Op.Value)
-	// }
-
 	builder = dbUtils.GetFieldExpr(builder, expr, sqlField, isJSONB)
 
 	return builder
@@ -543,115 +396,10 @@ func quoteIdent(s string) string {
 	return `"` + s + `"`
 }
 
-func GormGetList[T any](db *gorm.DB, payload fwork_server_orm.QueryPayload, dbUtils fwork_server_orm_implementation.DbUtils) (fwork_server_orm.GetListData[T], error) {
-	fwork_server_orm.ApplyPagination(&payload)
-
-	// =========================
-	// 1) COUNT
-	// =========================
-
-	// var total int64
-	var total int64 = 0
-
-	// countPayload := fwork_server_orm.ExtractCountPayload(payload)
-
-	// countBuilder := NewGormQueryBuilder(db.Model(new(T)))
-	// countBuilder = ApplyQuery(countBuilder, countPayload)
-
-	// if err := countBuilder.Db.Count(&total).Error; err != nil {
-	// 	return fwork_server_orm.GetListData[T]{}, err
-	// }
-
-	// =========================
-	// 2) DATA
-	// =========================
-
-	var list []T
-
-	dataBuilder := NewGormQueryBuilder(db.Model(new(T)))
-	dataBuilder = ApplyQuery(dataBuilder, payload, dbUtils)
-
-	if err := dataBuilder.Db.Find(&list).Error; err != nil {
-		return fwork_server_orm.GetListData[T]{}, err
-	}
-
-	// =========================
-	// RESPONSE
-	// =========================
-
-	return fwork_server_orm.GetListData[T]{
-		Payload:    list,
-		Pagination: fwork_server_orm.BuildPaginationMeta(payload, total),
-	}, nil
-}
-
-func GormGetListHttp[T any](db *gorm.DB, r *http.Request, additionalWhere fwork_server_orm.Filter, dbUtils fwork_server_orm_implementation.DbUtils) (fwork_server_orm.GetListData[T], error) {
-	var payload fwork_server_orm.QueryPayload
-
-	// where
-	if raw := r.URL.Query().Get("where"); raw != "" {
-		if err := json.Unmarshal([]byte(raw), &payload.Where); err != nil {
-			return fwork_server_orm.GetListData[T]{}, fmt.Errorf("invalid where json: %w", err)
-		}
-	}
-
-	payload.Where = fwork_server_orm.MergeWhereWithAnd(payload.Where, additionalWhere)
-
-	// select
-	if raw := r.URL.Query().Get("select"); raw != "" {
-		if err := json.Unmarshal([]byte(raw), &payload.Select); err != nil {
-			return fwork_server_orm.GetListData[T]{}, fmt.Errorf("invalid select json: %w", err)
-		}
-	}
-
-	// sort
-	if raw := r.URL.Query().Get("sort"); raw != "" {
-		if err := json.Unmarshal([]byte(raw), &payload.Order); err != nil {
-			return fwork_server_orm.GetListData[T]{}, fmt.Errorf("invalid sort json: %w", err)
-		}
-	}
-
-	// limit
-	if raw := r.URL.Query().Get("limit"); raw != "" {
-		var v int
-		if err := json.Unmarshal([]byte(raw), &v); err != nil {
-			return fwork_server_orm.GetListData[T]{}, fmt.Errorf("invalid limit: %w", err)
-		}
-		payload.Limit = &v
-	}
-
-	// skip
-	if raw := r.URL.Query().Get("skip"); raw != "" {
-		var v int
-		if err := json.Unmarshal([]byte(raw), &v); err != nil {
-			return fwork_server_orm.GetListData[T]{}, fmt.Errorf("invalid skip: %w", err)
-		}
-		payload.Offset = &v
-	}
-
-	// page
-	if raw := r.URL.Query().Get("page"); raw != "" {
-		var v int
-		if err := json.Unmarshal([]byte(raw), &v); err != nil {
-			return fwork_server_orm.GetListData[T]{}, fmt.Errorf("invalid page: %w", err)
-		}
-		payload.Page = &v
-	}
-
-	// nested
-	payload.Nested = r.URL.Query().Get("nested")
-
-	// page -> skip
-	// It already exists in GormGetList.
-	// fwork_server_orm.ApplyPagination(&payload)
-
-	return GormGetList[T](db, payload, dbUtils)
-}
-
-func ApplyJoinsFromFilter(
+func applyJoinsFromFilter(
 	db *gorm.DB,
 	model any,
-	filter fwork_server_orm.Filter,
+	filter goqlite.Filter,
 ) {
 	for field := range filter.Fields {
 		if strings.Contains(field, ".") {
@@ -660,15 +408,15 @@ func ApplyJoinsFromFilter(
 	}
 
 	for _, f := range filter.And {
-		ApplyJoinsFromFilter(db, model, f)
+		applyJoinsFromFilter(db, model, f)
 	}
 
 	for _, f := range filter.Or {
-		ApplyJoinsFromFilter(db, model, f)
+		applyJoinsFromFilter(db, model, f)
 	}
 
 	if filter.Not != nil {
-		ApplyJoinsFromFilter(db, model, *filter.Not)
+		applyJoinsFromFilter(db, model, *filter.Not)
 	}
 }
 
@@ -683,7 +431,7 @@ func ensureJoin(db *gorm.DB, model any, fieldPath string) {
 
 	for i := 0; i < len(parts)-1; i++ {
 		relationSnake := parts[i] // course, course_group
-		relationName := fwork_server_orm.SnakeToCamel(relationSnake)
+		relationName := goqlite.SnakeToCamel(relationSnake)
 
 		stmt := &gorm.Statement{DB: db}
 		_ = stmt.Parse(currentModel)
@@ -711,128 +459,168 @@ func hasJoin(db *gorm.DB, alias string) bool {
 	return false
 }
 
-func indirect(v reflect.Value) reflect.Value {
-	for v.IsValid() && v.Kind() == reflect.Pointer {
-		v = v.Elem()
-	}
-	return v
+func (g *GormQueryBuilder) Where(cond string, args ...interface{}) goqlite.QueryBuilder {
+	g.Db = g.Db.Where(cond, args...)
+	return g
 }
 
-func fieldByNameFold(v reflect.Value, name string) reflect.Value {
-	if v.Kind() != reflect.Struct {
-		return reflect.Value{}
-	}
-
-	return v.FieldByNameFunc(func(n string) bool {
-		return strings.EqualFold(n, name)
-	})
+func (g *GormQueryBuilder) And(sub goqlite.QueryBuilder) goqlite.QueryBuilder {
+	model := g.Db.Statement.Model
+	g.Db = g.Db.Where(sub.Build())
+	g.Db.Statement.Model = model
+	return g
 }
 
-func parseColumnName(tag string, fallback string) string {
-	for _, part := range strings.Split(tag, ";") {
-		if strings.HasPrefix(part, "column:") {
-			return strings.TrimPrefix(part, "column:")
+func (g *GormQueryBuilder) Or(sub goqlite.QueryBuilder) goqlite.QueryBuilder {
+	model := g.Db.Statement.Model
+	g.Db = g.Db.Or(sub.Build())
+	g.Db.Statement.Model = model
+	return g
+}
+
+func (g *GormQueryBuilder) Not(sub goqlite.QueryBuilder) goqlite.QueryBuilder {
+	model := g.Db.Statement.Model
+	g.Db = g.Db.Not(sub.Build())
+	g.Db.Statement.Model = model
+	return g
+}
+
+func (g *GormQueryBuilder) Build() interface{} {
+	return g.Db
+}
+
+func (g *GormQueryBuilder) Clone() goqlite.QueryBuilder {
+	newDB := g.Db.Session(&gorm.Session{NewDB: true})
+	return &GormQueryBuilder{
+		Db:     newDB,
+		Schema: g.Schema, // 🔥 mantém schema
+	}
+}
+
+func ReadFromQueryPayload[T any](db *gorm.DB, payload goqlite.QueryPayload, dbUtils goqlite.DbUtils) (goqlite.GetListData[T], error) {
+	goqlite.ApplyPagination(&payload)
+
+	// =========================
+	// 1) COUNT
+	// =========================
+
+	// var total int64
+	var total int64
+
+	countPayload := goqlite.ExtractCountPayload(payload)
+
+	countBuilder := newGormQueryBuilder(db.Model(new(T)))
+	countBuilder = applyQuery(countBuilder, countPayload, dbUtils)
+
+	if err := countBuilder.Db.Count(&total).Error; err != nil {
+		return goqlite.GetListData[T]{}, err
+	}
+
+	// =========================
+	// 2) DATA
+	// =========================
+
+	var list []T
+
+	dataBuilder := newGormQueryBuilder(db.Model(new(T)))
+	dataBuilder = applyQuery(dataBuilder, payload, dbUtils)
+
+	if err := dataBuilder.Db.Find(&list).Error; err != nil {
+		return goqlite.GetListData[T]{}, err
+	}
+
+	// =========================
+	// RESPONSE
+	// =========================
+
+	return goqlite.GetListData[T]{
+		Payload:    list,
+		Pagination: goqlite.BuildPaginationMeta(payload, total),
+	}, nil
+}
+
+func ReadFromHttpRequestParams[T any](db *gorm.DB, r *http.Request, additionalWhere goqlite.Filter, dbUtils goqlite.DbUtils) (goqlite.GetListData[T], error) {
+	var payload goqlite.QueryPayload
+
+	// where
+	if raw := r.URL.Query().Get("where"); raw != "" {
+		if err := json.Unmarshal([]byte(raw), &payload.Where); err != nil {
+			return goqlite.GetListData[T]{}, fmt.Errorf("invalid where json: %w", err)
 		}
 	}
-	return fallback
-}
 
-func diffStruct[T any](old T, new T, keyName string) map[string]interface{} {
-	changes := make(map[string]interface{})
+	payload.Where = goqlite.MergeWhereWithAnd(payload.Where, additionalWhere)
 
-	oldVal := reflect.Indirect(reflect.ValueOf(old))
-	newVal := reflect.Indirect(reflect.ValueOf(new))
-	typ := oldVal.Type()
-
-	for i := 0; i < oldVal.NumField(); i++ {
-		field := typ.Field(i)
-
-		// ignora PK
-		if strings.EqualFold(field.Name, keyName) {
-			continue
-		}
-
-		oldField := oldVal.Field(i).Interface()
-		newField := newVal.Field(i).Interface()
-
-		if !reflect.DeepEqual(oldField, newField) {
-			column := field.Tag.Get("gorm")
-			columnName := parseColumnName(column, field.Name)
-
-			changes[columnName] = newField
+	// select
+	if raw := r.URL.Query().Get("select"); raw != "" {
+		if err := json.Unmarshal([]byte(raw), &payload.Select); err != nil {
+			return goqlite.GetListData[T]{}, fmt.Errorf("invalid select json: %w", err)
 		}
 	}
 
-	return changes
-}
-
-type PersistSanitizer interface {
-	SanitizeForPersist()
-}
-
-func GormCreate[T any](
-	payload T,
-	db *gorm.DB,
-) (*T, error) {
-
-	// 🔴 sanitiza se o tipo suportar
-	if s, ok := any(&payload).(PersistSanitizer); ok {
-		s.SanitizeForPersist()
+	// sort
+	if raw := r.URL.Query().Get("sort"); raw != "" {
+		if err := json.Unmarshal([]byte(raw), &payload.Order); err != nil {
+			return goqlite.GetListData[T]{}, fmt.Errorf("invalid sort json: %w", err)
+		}
 	}
 
-	if err := db.Create(&payload).Error; err != nil {
-		return nil, err
+	// limit
+	if raw := r.URL.Query().Get("limit"); raw != "" {
+		var v int
+		if err := json.Unmarshal([]byte(raw), &v); err != nil {
+			return goqlite.GetListData[T]{}, fmt.Errorf("invalid limit: %w", err)
+		}
+		payload.Limit = &v
 	}
 
-	return &payload, nil
+	// skip
+	if raw := r.URL.Query().Get("skip"); raw != "" {
+		var v int
+		if err := json.Unmarshal([]byte(raw), &v); err != nil {
+			return goqlite.GetListData[T]{}, fmt.Errorf("invalid skip: %w", err)
+		}
+		payload.Offset = &v
+	}
+
+	// page
+	if raw := r.URL.Query().Get("page"); raw != "" {
+		var v int
+		if err := json.Unmarshal([]byte(raw), &v); err != nil {
+			return goqlite.GetListData[T]{}, fmt.Errorf("invalid page: %w", err)
+		}
+		payload.Page = &v
+	}
+
+	// nested
+	payload.Nested = r.URL.Query().Get("nested")
+
+	// page -> skip
+	// It already exists in ReadFromQueryPayload.
+	// goqlite.ApplyPagination(&payload)
+
+	return ReadFromQueryPayload[T](db, payload, dbUtils)
 }
 
-func GormUpdate[T any](
-	payload T,
-	id any,
-	db *gorm.DB,
-	keyName string,
-) (*T, error) {
+//
 
-	// 🔴 sanitiza se o tipo suportar
-	if s, ok := any(&payload).(PersistSanitizer); ok {
-		s.SanitizeForPersist()
-	}
-
-	if err := db.Where(fmt.Sprintf("%s = ?", keyName), id).Updates(&payload).Error; err != nil {
-		return nil, err
-	}
-
-	return &payload, nil
+type BaseOptions struct {
+	goqlite.BaseOptions
+	Db *gorm.DB
 }
 
-// func GormUpdate2[T any](
-// 	payload T,
-// 	id any,
-// 	db *gorm.DB,
-// 	keyName string,
-// ) (*T, error) {
+type Base[T any] struct {
+	Options BaseOptions
+}
 
-// 	// 🔴 sanitiza se o tipo suportar
-// 	if s, ok := any(&payload).(PersistSanitizer); ok {
-// 		s.SanitizeForPersist()
-// 	}
+func (base Base[T]) GetHandler() {
 
-// 	var old T
+}
 
-// 	if err := db.First(&old, fmt.Sprintf("%s = ?", keyName), id).Error; err != nil {
-// 		return nil, err
-// 	}
+func (base Base[T]) ReadFromHttpRequestParams(r *http.Request, additionalWhere goqlite.Filter) (goqlite.GetListData[T], error) {
+	return ReadFromHttpRequestParams[T](base.Options.Db, r, additionalWhere, base.Options.DbUtils)
+}
 
-// 	changes := diffStruct(old, payload, keyName)
-
-// 	if len(changes) == 0 {
-// 		return &old, nil
-// 	}
-
-// 	if err := db.Model(&old).Updates(changes).Error; err != nil {
-// 		return nil, err
-// 	}
-
-// 	return &old, nil
-// }
+func (base Base[T]) ReadFromQueryPayload(payload goqlite.QueryPayload) (goqlite.GetListData[T], error) {
+	return ReadFromQueryPayload[T](base.Options.Db, payload, base.Options.DbUtils)
+}
