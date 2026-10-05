@@ -308,6 +308,35 @@ func (f *Filter) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+func (f Filter) MarshalJSON() ([]byte, error) {
+	type filterJSON struct {
+		And    []Filter             `json:"$and,omitempty"`
+		Or     []Filter             `json:"$or,omitempty"`
+		Not    *Filter              `json:"$not,omitempty"`
+		Fields map[string]FieldExpr `json:"-"`
+	}
+
+	result := map[string]interface{}{}
+
+	if len(f.And) > 0 {
+		result["$and"] = f.And
+	}
+
+	if len(f.Or) > 0 {
+		result["$or"] = f.Or
+	}
+
+	if f.Not != nil {
+		result["$not"] = f.Not
+	}
+
+	for field, expr := range f.Fields {
+		result[field] = expr
+	}
+
+	return json.Marshal(result)
+}
+
 func SnakeToCamel(s string) string {
 	parts := strings.Split(s, "_")
 	for i := range parts {
