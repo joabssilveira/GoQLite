@@ -1,0 +1,29 @@
+{
+  "git.enableSmartCommit": true,
+  "git.confirmSync": false,
+  "js/ts.suggest.autoImports": true,
+  "js/ts.updateImportsOnFileMove.enabled": "always",
+  "editor.accessibilitySupport": "off",
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  },
+  "todo-tree.tree.showBadges": true,
+  "todo-tree.tree.showCountsInTree": true,
+  "workbench.colorTheme": "Dark Modern",
+  "workbench.iconTheme": "material-icon-theme",
+  "workbench.browser.openLocalhostLinks": false,
+  "extensions.ignoreRecommendations": true,
+  "explorer.compactFolders": false,
+  "explorer.autoReveal": true,
+  // DEFAULT TO ALL DEV
+  "editor.detectIndentation": false,
+  "editor.tabSize": 2,
+  "dart.debugExternalPackageLibraries": true,
+  "dart.debugSdkLibraries": true,
+  "dart.lineLength": 140,
+  "[dart]": {
+    "editor.rulers": [
+      140
+    ],
+  },
+}
